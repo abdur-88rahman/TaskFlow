@@ -2,6 +2,8 @@
 
 A full-stack web application for team collaboration where users can create projects, assign tasks, and track progress with **role-based access control** (Admin/Member).
 
+Built with a **REST API backend** (Node.js/Express) and a **separate frontend** (vanilla HTML/CSS/JS), connected to **Supabase PostgreSQL**.
+
 > **Live Demo:** [Deployed on Railway](#) *(update with your Railway URL after deployment)*
 
 ---
@@ -11,7 +13,7 @@ A full-stack web application for team collaboration where users can create proje
 ### Authentication
 - Secure **signup & login** with hashed passwords (bcrypt)
 - JWT-based session management via httpOnly cookies
-- Protected routes — unauthenticated users are redirected to login
+- Protected API routes — unauthenticated requests receive 401 JSON responses
 
 ### Project Management
 - Create, view, and delete projects
@@ -22,41 +24,37 @@ A full-stack web application for team collaboration where users can create proje
 - Create, edit, and delete tasks within projects
 - Assign tasks to specific team members
 - Set due dates and track task status (`To Do` → `In Progress` → `Done`)
-- Inline status updates via dropdown — changes are saved instantly
+- Inline status updates — changes saved via PATCH API call
 
 ### Dashboard
 - Overview of all projects the user belongs to
 - Task statistics — total, in-progress, completed, and overdue counts
 - Personal task list showing tasks assigned to the logged-in user
-- **Overdue detection** — tasks past their due date are flagged in red
+- **Overdue detection** — tasks past their due date are flagged
 
 ### Role-Based Access Control (RBAC)
 
-| Action                    | Admin | Member |
-|---------------------------|:-----:|:------:|
-| Create project            |   ✅   |   ✅    |
-| Delete project            |   ✅   |   ❌    |
-| Add / remove members      |   ✅   |   ❌    |
-| Create / edit / delete tasks |   ✅   |   ❌    |
-| Update task status        |   ✅   | ✅ *(assigned tasks only)* |
-| View project & tasks      |   ✅   |   ✅    |
-
-- The **project creator** is automatically assigned the `Admin` role.
-- Admins can add other users as either `Admin` or `Member`.
+| Action                        | Admin | Member                    |
+|-------------------------------|:-----:|:-------------------------:|
+| Create project                |   ✅   |   ✅                       |
+| Delete project                |   ✅   |   ❌                       |
+| Add / remove members          |   ✅   |   ❌                       |
+| Create / edit / delete tasks  |   ✅   |   ❌                       |
+| Update task status            |   ✅   | ✅ *(assigned tasks only)* |
+| View project & tasks          |   ✅   |   ✅                       |
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer         | Technology                                   |
-|---------------|----------------------------------------------|
-| **Backend**   | Node.js, Express.js                          |
-| **Database**  | PostgreSQL via Supabase                      |
-| **Auth**      | bcryptjs (hashing), jsonwebtoken (JWT)       |
-| **Templating**| EJS (server-side rendering)                  |
-| **Styling**   | Vanilla CSS (custom dark theme)              |
-| **Validation**| express-validator                            |
-| **Deployment**| Railway                                      |
+| Layer          | Technology                              |
+|----------------|-----------------------------------------|
+| **Backend**    | Node.js, Express.js (REST API)          |
+| **Frontend**   | Vanilla HTML, CSS, JavaScript           |
+| **Database**   | PostgreSQL via Supabase                 |
+| **Auth**       | bcryptjs (hashing), jsonwebtoken (JWT)  |
+| **Validation** | express-validator                       |
+| **Deployment** | Railway                                 |
 
 ---
 
@@ -64,32 +62,38 @@ A full-stack web application for team collaboration where users can create proje
 
 ```
 Team Task Manager/
-├── server.js                 # Express app entry point
+├── server.js                     # Entry point — serves API + static files
 ├── package.json
-├── .env                      # Environment variables (git-ignored)
+├── .env                          # Environment variables (git-ignored)
 ├── .gitignore
-├── config/
-│   ├── db.js                 # Supabase client configuration
-│   └── schema.sql            # Database schema (run in Supabase SQL Editor)
-├── middleware/
-│   ├── auth.js               # JWT authentication & role-based guards
-│   └── validators.js         # Request validation rules
-├── routes/
-│   ├── auth.js               # Signup, login, logout
-│   ├── dashboard.js          # Dashboard with stats & task overview
-│   ├── projects.js           # Project CRUD & member management
-│   └── tasks.js              # Task CRUD & status updates
-├── views/
-│   ├── partials/             # Reusable header, navbar, footer
-│   ├── auth/                 # Login & signup pages
-│   ├── projects/             # Project list, detail, and creation pages
-│   ├── tasks/                # Task creation & edit forms
-│   ├── dashboard.ejs         # Main dashboard view
-│   ├── 404.ejs               # Not found page
-│   └── error.ejs             # Server error page
-└── public/
-    └── css/
-        └── style.css         # Global stylesheet
+│
+├── backend/                      # REST API (Express)
+│   ├── config/
+│   │   ├── db.js                 # Supabase client
+│   │   └── schema.sql            # Database schema
+│   ├── middleware/
+│   │   ├── auth.js               # JWT auth + role guards
+│   │   └── validators.js         # Request validation
+│   └── routes/
+│       ├── auth.js               # POST /api/auth/signup, login, logout
+│       ├── dashboard.js          # GET  /api/dashboard
+│       ├── projects.js           # CRUD /api/projects
+│       └── tasks.js              # CRUD /api/tasks
+│
+└── frontend/                     # Static frontend (vanilla JS)
+    ├── index.html                # Login page
+    ├── signup.html               # Signup page
+    ├── dashboard.html            # Dashboard
+    ├── projects.html             # Project list
+    ├── project.html              # Project detail + tasks + members
+    ├── new-project.html          # Create project form
+    ├── new-task.html             # Create task form
+    ├── edit-task.html            # Edit task form
+    ├── css/
+    │   └── style.css             # Global stylesheet
+    └── js/
+        ├── api.js                # API client (fetch wrapper)
+        └── utils.js              # Shared UI utilities
 ```
 
 ---
@@ -118,10 +122,8 @@ npm install
 1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
 2. Create a new project (or use an existing one)
 3. Navigate to **SQL Editor → New Query**
-4. Paste the contents of `config/schema.sql` and click **Run**
-5. Go to **Settings → API** and copy:
-   - **Project URL** → `SUPABASE_URL`
-   - **Service Role Key** (under `service_role`) → `SUPABASE_SERVICE_KEY`
+4. Paste the contents of `backend/config/schema.sql` and click **Run**
+5. Go to **Settings → API** and copy your **Project URL** and **Service Role Key**
 
 ### 4. Configure Environment Variables
 
@@ -136,11 +138,6 @@ PORT=3000
 NODE_ENV=development
 ```
 
-> Generate secure secrets by running:
-> ```bash
-> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-> ```
-
 ### 5. Start the Development Server
 
 ```bash
@@ -151,98 +148,62 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## 📡 REST API Endpoints
+
+### Authentication
+| Method | Endpoint            | Description           | Auth Required |
+|--------|---------------------|-----------------------|:------------:|
+| POST   | `/api/auth/signup`  | Create new account    |      ❌       |
+| POST   | `/api/auth/login`   | Authenticate user     |      ❌       |
+| POST   | `/api/auth/logout`  | Logout (clear cookie) |      ❌       |
+| GET    | `/api/auth/me`      | Get current user      |      ✅       |
+
+### Dashboard
+| Method | Endpoint         | Description             | Auth Required |
+|--------|------------------|-------------------------|:------------:|
+| GET    | `/api/dashboard` | Stats, tasks, projects  |      ✅       |
+
+### Projects
+| Method | Endpoint                                  | Description       | Access  |
+|--------|-------------------------------------------|-------------------|---------|
+| GET    | `/api/projects`                           | List user projects | Member+ |
+| POST   | `/api/projects`                           | Create project     | Any     |
+| GET    | `/api/projects/:id`                       | Project detail     | Member+ |
+| DELETE | `/api/projects/:id`                       | Delete project     | Admin   |
+| POST   | `/api/projects/:id/members`               | Add member         | Admin   |
+| DELETE | `/api/projects/:id/members/:memberId`     | Remove member      | Admin   |
+
+### Tasks
+| Method | Endpoint                          | Description     | Access            |
+|--------|-----------------------------------|-----------------|-------------------|
+| POST   | `/api/projects/:id/tasks`         | Create task     | Admin             |
+| GET    | `/api/tasks/:id`                  | Get task        | Member+           |
+| PUT    | `/api/tasks/:id`                  | Update task     | Admin             |
+| PATCH  | `/api/tasks/:id/status`           | Update status   | Admin or Assignee |
+| DELETE | `/api/tasks/:id`                  | Delete task     | Admin             |
+
+---
+
 ## 🌐 Deployment (Railway)
 
-### Steps
-
-1. Push the code to GitHub:
+1. Push to GitHub:
    ```bash
    git add .
    git commit -m "Initial commit"
    git push -u origin main
    ```
 
-2. Go to [Railway](https://railway.app/) and create a new project
+2. Go to [Railway](https://railway.app/) → New Project → **Deploy from GitHub Repo**
 
-3. Select **"Deploy from GitHub Repo"** and connect your repository
+3. Set environment variables:
+   | Variable              | Value                          |
+   |-----------------------|--------------------------------|
+   | `SUPABASE_URL`        | Your Supabase project URL      |
+   | `SUPABASE_SERVICE_KEY`| Your Supabase service role key |
+   | `JWT_SECRET`          | Random 64-char hex string      |
+   | `SESSION_SECRET`      | Random 64-char hex string      |
+   | `NODE_ENV`            | `production`                   |
 
-4. Add the following **environment variables** in Railway's dashboard:
-   | Variable              | Value                              |
-   |-----------------------|------------------------------------|
-   | `SUPABASE_URL`        | Your Supabase project URL          |
-   | `SUPABASE_SERVICE_KEY`| Your Supabase service role key     |
-   | `JWT_SECRET`          | A random 64-character hex string   |
-   | `SESSION_SECRET`      | A random 64-character hex string   |
-   | `NODE_ENV`            | `production`                       |
-
-5. Railway auto-detects Node.js and runs `npm start`
-
-6. Your app will be live at the Railway-provided URL 🎉
-
----
-
-## 📡 API Routes
-
-### Authentication
-| Method | Route           | Description          |
-|--------|-----------------|----------------------|
-| GET    | `/auth/signup`  | Signup page          |
-| POST   | `/auth/signup`  | Create new account   |
-| GET    | `/auth/login`   | Login page           |
-| POST   | `/auth/login`   | Authenticate user    |
-| GET    | `/auth/logout`  | Logout & clear session|
-
-### Dashboard
-| Method | Route        | Description                    |
-|--------|--------------|--------------------------------|
-| GET    | `/dashboard` | User dashboard with stats      |
-
-### Projects
-| Method | Route                                    | Access  |
-|--------|------------------------------------------|---------|
-| GET    | `/projects`                              | Member+ |
-| GET    | `/projects/new`                          | Any     |
-| POST   | `/projects`                              | Any     |
-| GET    | `/projects/:id`                          | Member+ |
-| POST   | `/projects/:id/members`                  | Admin   |
-| POST   | `/projects/:id/members/:memberId/remove` | Admin   |
-| POST   | `/projects/:id/delete`                   | Admin   |
-
-### Tasks
-| Method | Route                              | Access             |
-|--------|------------------------------------|--------------------|
-| GET    | `/projects/:id/tasks/new`          | Admin              |
-| POST   | `/projects/:id/tasks`              | Admin              |
-| GET    | `/tasks/:id/edit`                  | Admin              |
-| POST   | `/tasks/:id`                       | Admin              |
-| POST   | `/tasks/:id/status`                | Admin or Assignee  |
-| POST   | `/tasks/:id/delete`                | Admin              |
-
----
-
-## 🗄️ Database Schema
-
-```
-┌──────────┐       ┌─────────────────┐       ┌──────────┐
-│  users   │       │ project_members │       │ projects │
-├──────────┤       ├─────────────────┤       ├──────────┤
-│ id (PK)  │◄──┐   │ id (PK)         │   ┌──►│ id (PK)  │
-│ name     │   ├───│ user_id (FK)    │   │   │ name     │
-│ email    │   │   │ project_id (FK) │───┘   │ desc     │
-│ password │   │   │ role            │       │ owner_id │──┐
-│ created  │   │   │ joined_at       │       │ created  │  │
-└──────────┘   │   └─────────────────┘       └──────────┘  │
-               │                                            │
-               │   ┌──────────┐                             │
-               │   │  tasks   │                             │
-               │   ├──────────┤                             │
-               ├───│ assigned │                             │
-               │   │ created  │─────────────────────────────┘
-               │   │ project  │
-               │   │ title    │
-               │   │ status   │
-               │   │ due_date │
-               │   └──────────┘
-```
+4. Railway auto-detects Node.js and runs `npm start` 🎉
 
 ---

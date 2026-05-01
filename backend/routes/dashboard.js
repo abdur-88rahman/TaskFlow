@@ -5,10 +5,9 @@ const { authenticate } = require('../middleware/auth');
 
 router.use(authenticate);
 
-// GET /dashboard
+// GET /api/dashboard
 router.get('/', async (req, res) => {
   try {
-    // Get user's projects
     const { data: memberships } = await supabase
       .from('project_members')
       .select(`
@@ -29,7 +28,6 @@ router.get('/', async (req, res) => {
     let allTasks = [];
 
     if (projectIds.length > 0) {
-      // Get tasks assigned to user
       const { data: assigned } = await supabase
         .from('tasks')
         .select(`
@@ -42,7 +40,6 @@ router.get('/', async (req, res) => {
 
       myTasks = assigned || [];
 
-      // Get all tasks in user's projects for stats
       const { data: all } = await supabase
         .from('tasks')
         .select('id, status, due_date, project_id')
@@ -51,7 +48,6 @@ router.get('/', async (req, res) => {
       allTasks = all || [];
     }
 
-    // Calculate stats
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
@@ -68,29 +64,15 @@ router.get('/', async (req, res) => {
       myTaskCount: myTasks.length,
     };
 
-    // Get overdue tasks for the list
     const overdueTasks = myTasks.filter(t => {
       if (!t.due_date || t.status === 'Done') return false;
       return new Date(t.due_date) < now;
     });
 
-    res.render('dashboard', {
-      title: 'Dashboard',
-      projects,
-      myTasks,
-      overdueTasks,
-      stats,
-    });
+    res.json({ stats, myTasks, overdueTasks, projects });
   } catch (err) {
     console.error('Dashboard error:', err);
-    req.flash('error', 'Failed to load dashboard');
-    res.render('dashboard', {
-      title: 'Dashboard',
-      projects: [],
-      myTasks: [],
-      overdueTasks: [],
-      stats: { totalProjects: 0, totalTasks: 0, todo: 0, inProgress: 0, done: 0, overdue: 0, myTaskCount: 0 },
-    });
+    res.status(500).json({ error: 'Failed to load dashboard' });
   }
 });
 

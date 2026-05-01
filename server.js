@@ -1,66 +1,30 @@
 require('dotenv').config();
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
-const flash = require('connect-flash');
 const path = require('path');
-const methodOverride = require('method-override');
-const { setUser } = require('./middleware/auth');
 
 const app = express();
 
-// View engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
 // Middleware
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(methodOverride('_method'));
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'fallback-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 60000 },
-}));
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, 'frontend')));
 
-app.use(flash());
+// REST API Routes
+app.use('/api/auth', require('./backend/routes/auth'));
+app.use('/api/dashboard', require('./backend/routes/dashboard'));
+app.use('/api/projects', require('./backend/routes/projects'));
+app.use('/api', require('./backend/routes/tasks'));
 
-// Flash messages + user for all views
-app.use((req, res, next) => {
-  res.locals.success = req.flash('success');
-  res.locals.error = req.flash('error');
-  next();
-});
-
-app.use(setUser);
-
-// Routes
-app.use('/auth', require('./routes/auth'));
-app.use('/dashboard', require('./routes/dashboard'));
-app.use('/projects', require('./routes/projects'));
-app.use('/', require('./routes/tasks'));
-
-// Home redirect
-app.get('/', (req, res) => {
-  if (res.locals.currentUser) {
-    return res.redirect('/dashboard');
+// Serve frontend for all non-API routes (SPA fallback)
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
   }
-  res.redirect('/auth/login');
-});
-
-// 404
-app.use((req, res) => {
-  res.status(404).render('404', { title: 'Page Not Found' });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).render('error', { title: 'Error', error: err.message });
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

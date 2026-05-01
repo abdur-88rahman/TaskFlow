@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Projects | TaskFlow</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      TaskFlow
+    </a>
+    <ul class="navbar-nav" id="navbar-content"></ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div><h1>My Projects</h1><p>All projects you're a part of</p></div>
+      <a href="/new-project.html" class="btn btn-primary">+ New Project</a>
+    </div>
+    <div id="project-list"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    (async () => {
+      const user = await checkAuth();
+      if (!user) return window.location.href = '/';
+      renderNavbar(user);
+
+      try {
+        const data = await API.getProjects();
+        const el = document.getElementById('project-list');
+        if (data.projects.length === 0) {
+          el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><h3>No projects yet</h3><p>Create your first project to start organizing</p><a href="/new-project.html" class="btn btn-primary">+ Create Project</a></div>';
+        } else {
+          el.innerHTML = '<div class="card-grid">' + data.projects.map(p =>
+            `<a href="/project.html?id=${p.id}" class="card" style="text-decoration:none;color:inherit">
+              <div class="card-title">${p.name}</div>
+              ${p.description ? `<div class="card-desc">${p.description.substring(0,120)}${p.description.length>120?'...':''}</div>` : ''}
+              <div class="card-meta">${roleBadge(p.userRole)}<span>Created ${formatDateLong(p.created_at)}</span></div>
+            </a>`).join('') + '</div>';
+        }
+      } catch (err) { showAlert(err.message, 'error'); }
+    })();
+  </script>
+</body>
+</html>

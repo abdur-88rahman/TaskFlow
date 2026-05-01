@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Project | TaskFlow</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      TaskFlow
+    </a>
+    <ul class="navbar-nav" id="navbar-content"></ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div><h1>Create New Project</h1><p>Set up a new project for your team</p></div>
+      <a href="/projects.html" class="btn btn-secondary">← Back</a>
+    </div>
+    <div class="form-container">
+      <div class="card" style="cursor:default">
+        <form id="project-form">
+          <div class="form-group">
+            <label for="name">Project Name</label>
+            <input type="text" class="form-control" id="name" placeholder="e.g. Website Redesign" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Description (optional)</label>
+            <textarea class="form-control" id="description" placeholder="What is this project about?" rows="4"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="create-btn">Create Project</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    (async () => {
+      const user = await checkAuth();
+      if (!user) return window.location.href = '/';
+      renderNavbar(user);
+    })();
+
+    document.getElementById('project-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('create-btn');
+      btn.textContent = 'Creating...'; btn.disabled = true;
+      try {
+        const data = await API.createProject({
+          name: document.getElementById('name').value,
+          description: document.getElementById('description').value,
+        });
+        window.location.href = `/project.html?id=${data.project.id}`;
+      } catch (err) {
+        showAlert(err.message, 'error');
+        btn.textContent = 'Create Project'; btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -5,24 +5,18 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const supabase = require('../config/db');
 const { signupValidation, loginValidation } = require('../middleware/validators');
+const { authenticate } = require('../middleware/auth');
 
-// GET /auth/signup
-router.get('/signup', (req, res) => {
-  if (req.user) return res.redirect('/dashboard');
-  res.render('auth/signup', { title: 'Sign Up', errors: [] });
-});
-
-// POST /auth/signup
+// POST /api/auth/signup
 router.post('/signup', signupValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.render('auth/signup', { title: 'Sign Up', errors: errors.array() });
+    return res.status(400).json({ errors: errors.array() });
   }
 
   const { name, email, password } = req.body;
 
   try {
-    // Check if email already exists
     const { data: existing } = await supabase
       .from('users')
       .select('id')
@@ -30,25 +24,19 @@ router.post('/signup', signupValidation, async (req, res) => {
       .single();
 
     if (existing) {
-      return res.render('auth/signup', {
-        title: 'Sign Up',
-        errors: [{ msg: 'Email already registered' }],
-      });
+      return res.status(409).json({ error: 'Email already registered' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Insert user
     const { data: user, error } = await supabase
       .from('users')
       .insert({ name, email, password: hashedPassword })
-      .select('id, name, email')
+      .select('id, name, email, created_at')
       .single();
 
     if (error) throw error;
 
-    // Generate JWT
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, {
       httpOnly: true,
@@ -57,28 +45,18 @@ router.post('/signup', signupValidation, async (req, res) => {
       sameSite: 'lax',
     });
 
-    req.flash('success', 'Account created successfully!');
-    res.redirect('/dashboard');
+    res.status(201).json({ message: 'Account created successfully', user });
   } catch (err) {
     console.error('Signup error:', err);
-    res.render('auth/signup', {
-      title: 'Sign Up',
-      errors: [{ msg: 'Something went wrong. Please try again.' }],
-    });
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
-// GET /auth/login
-router.get('/login', (req, res) => {
-  if (req.user) return res.redirect('/dashboard');
-  res.render('auth/login', { title: 'Login', errors: [] });
-});
-
-// POST /auth/login
+// POST /api/auth/login
 router.post('/login', loginValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.render('auth/login', { title: 'Login', errors: errors.array() });
+    return res.status(400).json({ errors: errors.array() });
   }
 
   const { email, password } = req.body;
@@ -91,18 +69,12 @@ router.post('/login', loginValidation, async (req, res) => {
       .single();
 
     if (error || !user) {
-      return res.render('auth/login', {
-        title: 'Login',
-        errors: [{ msg: 'Invalid email or password' }],
-      });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.render('auth/login', {
-        title: 'Login',
-        errors: [{ msg: 'Invalid email or password' }],
-      });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -113,22 +85,25 @@ router.post('/login', loginValidation, async (req, res) => {
       sameSite: 'lax',
     });
 
-    req.flash('success', 'Welcome back!');
-    res.redirect('/dashboard');
+    res.json({
+      message: 'Login successful',
+      user: { id: user.id, name: user.name, email: user.email },
+    });
   } catch (err) {
     console.error('Login error:', err);
-    res.render('auth/login', {
-      title: 'Login',
-      errors: [{ msg: 'Something went wrong. Please try again.' }],
-    });
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
-// GET /auth/logout
-router.get('/logout', (req, res) => {
+// POST /api/auth/logout
+router.post('/logout', (req, res) => {
   res.clearCookie('token');
-  req.flash('success', 'Logged out successfully');
-  res.redirect('/auth/login');
+  res.json({ message: 'Logged out successfully' });
+});
+
+// GET /api/auth/me — get current user
+router.get('/me', authenticate, (req, res) => {
+  res.json({ user: req.user });
 });
 
 module.exports = router;

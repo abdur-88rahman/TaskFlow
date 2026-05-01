@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project | TaskFlow</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      TaskFlow
+    </a>
+    <ul class="navbar-nav" id="navbar-content"></ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header" id="project-header"></div>
+    <div class="two-col">
+      <div class="section">
+        <h2 class="section-title" id="tasks-title">📋 Tasks</h2>
+        <div id="tasks-area"></div>
+      </div>
+      <div>
+        <div class="section">
+          <h2 class="section-title" id="members-title">👥 Team Members</h2>
+          <div id="add-member-area"></div>
+          <div id="members-list"></div>
+        </div>
+        <div class="section">
+          <h2 class="section-title">ℹ️ Project Info</h2>
+          <div id="project-info"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const projectId = new URLSearchParams(window.location.search).get('id');
+    let currentUser, projectData;
+
+    (async () => {
+      currentUser = await checkAuth();
+      if (!currentUser) return window.location.href = '/';
+      renderNavbar(currentUser);
+      if (!projectId) return window.location.href = '/projects.html';
+      await loadProject();
+    })();
+
+    async function loadProject() {
+      try {
+        const data = await API.getProject(projectId);
+        projectData = data;
+        document.title = `${data.project.name} | TaskFlow`;
+        renderHeader(data);
+        renderTasks(data);
+        renderMembers(data);
+        renderInfo(data);
+      } catch (err) { showAlert(err.message, 'error'); }
+    }
+
+    function renderHeader(data) {
+      const isAdmin = data.userRole === 'Admin';
+      document.getElementById('project-header').innerHTML = `
+        <div>
+          <h1>${data.project.name}</h1>
+          ${data.project.description ? `<p>${data.project.description}</p>` : ''}
+        </div>
+        <div class="btn-group">
+          ${isAdmin ? `<a href="/new-task.html?projectId=${projectId}" class="btn btn-primary">+ Add Task</a>
+          <button class="btn btn-danger" onclick="deleteProject()">Delete Project</button>` : ''}
+          <a href="/projects.html" class="btn btn-secondary">← Back</a>
+        </div>`;
+    }
+
+    function renderTasks(data) {
+      const isAdmin = data.userRole === 'Admin';
+      document.getElementById('tasks-title').innerHTML = `📋 Tasks (${data.tasks.length})`;
+      const el = document.getElementById('tasks-area');
+      if (data.tasks.length === 0) {
+        el.innerHTML = `<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task</p>${isAdmin ? `<a href="/new-task.html?projectId=${projectId}" class="btn btn-primary">+ Add Task</a>` : ''}</div>`;
+        return;
+      }
+      el.innerHTML = `<div class="table-wrapper"><table>
+        <thead><tr><th>Task</th><th>Status</th><th>Assignee</th><th>Due Date</th><th>Actions</th></tr></thead>
+        <tbody>${data.tasks.map(t => {
+          const overdue = isOverdue(t.due_date, t.status);
+          const canChange = isAdmin || t.assigned_to === currentUser.id;
+          return `<tr>
+            <td><span class="task-title">${t.title}</span>${t.description ? `<br><small style="color:var(--text-muted)">${t.description.substring(0,60)}${t.description.length>60?'...':''}</small>` : ''}</td>
+            <td>${canChange ? `<form class="status-form"><select class="status-select" onchange="changeStatus('${t.id}',this.value)">
+              <option value="To Do" ${t.status==='To Do'?'selected':''}>📌 To Do</option>
+              <option value="In Progress" ${t.status==='In Progress'?'selected':''}>🔄 In Progress</option>
+              <option value="Done" ${t.status==='Done'?'selected':''}>✅ Done</option>
+            </select></form>` : statusBadge(t.status)}</td>
+            <td>${t.assignee ? `<span class="assignee-chip">${avatar(t.assignee.name)}<span class="assignee-name">${t.assignee.name}</span></span>` : '<span style="color:var(--text-muted);font-style:italic">Unassigned</span>'}</td>
+            <td>${t.due_date ? `<span style="color:${overdue?'var(--danger)':'var(--text-secondary)'}">${formatDate(t.due_date)}${overdue?' <span class="badge badge-overdue">Overdue</span>':''}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td><div class="btn-group">${isAdmin ? `<a href="/edit-task.html?id=${t.id}" class="btn btn-secondary btn-sm">Edit</a><button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">Delete</button>` : ''}</div></td>
+          </tr>`;
+        }).join('')}</tbody></table></div>`;
+    }
+
+    function renderMembers(data) {
+      const isAdmin = data.userRole === 'Admin';
+      document.getElementById('members-title').innerHTML = `👥 Team Members (${data.members.length})`;
+
+      // Add member form
+      const addEl = document.getElementById('add-member-area');
+      if (isAdmin) {
+        const users = data.availableUsers || [];
+        addEl.innerHTML = `
+          <form class="add-member-form" id="add-member-form">
+            <div class="autocomplete-wrapper">
+              <input type="text" class="form-control" id="member-search" placeholder="Search by name or email..." autocomplete="off">
+              <div class="autocomplete-dropdown" id="ac-dropdown"></div>
+            </div>
+            <select class="form-control" id="member-role"><option value="Member">Member</option><option value="Admin">Admin</option></select>
+            <button type="submit" class="btn btn-primary btn-sm">Add</button>
+          </form>
+          ${users.length === 0 ? '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">All users are already members</p>' : ''}`;
+        setupAutocomplete(users);
+      } else { addEl.innerHTML = ''; }
+
+      // Members list
+      document.getElementById('members-list').innerHTML = '<div class="member-list">' + data.members.map(m => `
+        <div class="member-item">
+          <div class="member-info">
+            <div class="avatar">${m.users.name.charAt(0).toUpperCase()}</div>
+            <div><div class="member-name">${m.users.name}</div><div class="member-email">${m.users.email}</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            ${roleBadge(m.role)}
+            ${isAdmin && m.users.id !== data.owner.id ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')" title="Remove">✕</button>` : ''}
+          </div>
+        </div>`).join('') + '</div>';
+    }
+
+    function renderInfo(data) {
+      document.getElementById('project-info').innerHTML = `
+        <div class="card" style="cursor:default">
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">Owner</p>
+          <p style="font-size:0.95rem;margin-bottom:1rem">${data.owner.name}</p>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">Created</p>
+          <p style="font-size:0.95rem;margin-bottom:1rem">${formatDateLong(data.project.created_at)}</p>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">Your Role</p>
+          ${roleBadge(data.userRole)}
+        </div>`;
+    }
+
+    let selectedUserId = '';
+    function setupAutocomplete(users) {
+      const input = document.getElementById('member-search');
+      const dropdown = document.getElementById('ac-dropdown');
+      if (!input) return;
+
+      input.addEventListener('input', () => {
+        selectedUserId = '';
+        const q = input.value.toLowerCase().trim();
+        if (!q) { dropdown.classList.remove('visible'); return; }
+        const filtered = users.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="ac-empty">No users found</div>';
+        } else {
+          dropdown.innerHTML = filtered.map(u => `
+            <div class="ac-item" data-id="${u.id}" data-name="${u.name}" data-email="${u.email}">
+              <span class="ac-avatar">${u.name.charAt(0).toUpperCase()}</span>
+              <div class="ac-info"><span class="ac-name">${u.name}</span><span class="ac-email">${u.email}</span></div>
+            </div>`).join('');
+          dropdown.querySelectorAll('.ac-item').forEach(item => {
+            item.addEventListener('click', () => {
+              selectedUserId = item.dataset.id;
+              input.value = `${item.dataset.name} (${item.dataset.email})`;
+              input.style.borderColor = 'var(--success)';
+              dropdown.classList.remove('visible');
+            });
+          });
+        }
+        dropdown.classList.add('visible');
+      });
+
+      document.addEventListener('click', e => { if (!e.target.closest('.autocomplete-wrapper')) dropdown.classList.remove('visible'); });
+
+      document.getElementById('add-member-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selectedUserId) { input.style.borderColor = 'var(--danger)'; input.focus(); return; }
+        try {
+          await API.addMember(projectId, { user_id: selectedUserId, role: document.getElementById('member-role').value });
+          await loadProject();
+          showAlert('Member added!');
+        } catch (err) { showAlert(err.message, 'error'); }
+      });
+    }
+
+    async function changeStatus(taskId, status) {
+      try { await API.updateStatus(taskId, status); await loadProject(); } catch (err) { showAlert(err.message, 'error'); }
+    }
+
+    async function deleteTask(taskId) {
+      if (!confirm('Delete this task?')) return;
+      try { await API.deleteTask(taskId); await loadProject(); showAlert('Task deleted'); } catch (err) { showAlert(err.message, 'error'); }
+    }
+
+    async function removeMember(memberId) {
+      if (!confirm('Remove this member?')) return;
+      try { await API.removeMember(projectId, memberId); await loadProject(); showAlert('Member removed'); } catch (err) { showAlert(err.message, 'error'); }
+    }
+
+    async function deleteProject() {
+      if (!confirm('Delete this project and all its tasks?')) return;
+      try { await API.deleteProject(projectId); window.location.href = '/projects.html'; } catch (err) { showAlert(err.message, 'error'); }
+    }
+  </script>
+</body>
+</html>

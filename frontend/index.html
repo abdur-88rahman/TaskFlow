@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TaskFlow - Login to manage your team's tasks">
+  <title>Login | TaskFlow</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      TaskFlow
+    </a>
+    <ul class="navbar-nav" id="navbar-content">
+      <li><a href="/" class="nav-link">Login</a></li>
+      <li><a href="/signup.html" class="btn btn-primary btn-sm">Sign Up</a></li>
+    </ul>
+  </nav>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1>Welcome Back</h1>
+      <p class="auth-subtitle">Sign in to continue to TaskFlow</p>
+      <div id="alert-area"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" class="form-control" id="email" placeholder="john@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" class="form-control" id="password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Sign In</button>
+      </form>
+      <p class="auth-link">Don't have an account? <a href="/signup.html">Sign Up</a></p>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    (async () => {
+      const user = await checkAuth();
+      if (user) return window.location.href = '/dashboard.html';
+    })();
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.textContent = 'Signing in...'; btn.disabled = true;
+      try {
+        await API.login({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        });
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showAlert(err.message, 'error');
+        btn.textContent = 'Sign In'; btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

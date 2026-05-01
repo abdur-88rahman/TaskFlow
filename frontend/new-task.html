@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Task | TaskFlow</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      TaskFlow
+    </a>
+    <ul class="navbar-nav" id="navbar-content"></ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div><h1>New Task</h1><p>Add a task to <strong id="project-name"></strong></p></div>
+      <a id="back-btn" href="/projects.html" class="btn btn-secondary">← Back</a>
+    </div>
+    <div class="form-container">
+      <div class="card" style="cursor:default">
+        <form id="task-form">
+          <div class="form-group">
+            <label for="title">Task Title</label>
+            <input type="text" class="form-control" id="title" placeholder="e.g. Design landing page" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Description (optional)</label>
+            <textarea class="form-control" id="description" placeholder="Task details..." rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select class="form-control" id="status">
+              <option value="To Do">To Do</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="assigned_to">Assign To</label>
+            <select class="form-control" id="assigned_to"><option value="">Unassigned</option></select>
+          </div>
+          <div class="form-group">
+            <label for="due_date">Due Date (optional)</label>
+            <input type="date" class="form-control" id="due_date">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="create-btn">Create Task</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const projectId = new URLSearchParams(window.location.search).get('projectId');
+
+    (async () => {
+      const user = await checkAuth();
+      if (!user) return window.location.href = '/';
+      renderNavbar(user);
+      if (!projectId) return window.location.href = '/projects.html';
+
+      document.getElementById('back-btn').href = `/project.html?id=${projectId}`;
+
+      try {
+        const proj = await API.getProject(projectId);
+        document.getElementById('project-name').textContent = proj.project.name;
+        const members = await API.getMembers(projectId);
+        const sel = document.getElementById('assigned_to');
+        (members.members || []).forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.users.id;
+          opt.textContent = `${m.users.name} (${m.users.email})`;
+          sel.appendChild(opt);
+        });
+      } catch (err) { showAlert(err.message, 'error'); }
+    })();
+
+    document.getElementById('task-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('create-btn');
+      btn.textContent = 'Creating...'; btn.disabled = true;
+      try {
+        await API.createTask(projectId, {
+          title: document.getElementById('title').value,
+          description: document.getElementById('description').value,
+          status: document.getElementById('status').value,
+          assigned_to: document.getElementById('assigned_to').value || null,
+          due_date: document.getElementById('due_date').value || null,
+        });
+        window.location.href = `/project.html?id=${projectId}`;
+      } catch (err) {
+        showAlert(err.message, 'error');
+        btn.textContent = 'Create Task'; btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

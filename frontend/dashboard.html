@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | TaskFlow</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      TaskFlow
+    </a>
+    <ul class="navbar-nav" id="navbar-content"></ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Welcome back, <strong id="user-name"></strong></p>
+      </div>
+      <a href="/new-project.html" class="btn btn-primary" id="new-project-btn">+ New Project</a>
+    </div>
+
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <div class="two-col">
+      <div class="section">
+        <h2 class="section-title">📋 My Tasks</h2>
+        <div id="my-tasks"></div>
+      </div>
+      <div>
+        <div class="section" id="overdue-section" style="display:none">
+          <h2 class="section-title" style="color:var(--danger)">⚠️ Overdue</h2>
+          <div id="overdue-tasks"></div>
+        </div>
+        <div class="section">
+          <h2 class="section-title">📁 Recent Projects</h2>
+          <div id="recent-projects"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    (async () => {
+      const user = await checkAuth();
+      if (!user) return window.location.href = '/';
+      renderNavbar(user);
+      document.getElementById('user-name').textContent = user.name;
+
+      try {
+        const data = await API.dashboard();
+        const s = data.stats;
+
+        document.getElementById('stats-grid').innerHTML = `
+          <div class="stat-card accent"><div class="stat-icon">📁</div><div class="stat-label">Projects</div><div class="stat-value">${s.totalProjects}</div></div>
+          <div class="stat-card info"><div class="stat-icon">📋</div><div class="stat-label">Total Tasks</div><div class="stat-value">${s.totalTasks}</div></div>
+          <div class="stat-card warning"><div class="stat-icon">🔄</div><div class="stat-label">In Progress</div><div class="stat-value">${s.inProgress}</div></div>
+          <div class="stat-card success"><div class="stat-icon">✅</div><div class="stat-label">Completed</div><div class="stat-value">${s.done}</div></div>
+          <div class="stat-card danger"><div class="stat-icon">⚠️</div><div class="stat-label">Overdue</div><div class="stat-value">${s.overdue}</div></div>
+          <div class="stat-card info"><div class="stat-icon">👤</div><div class="stat-label">My Tasks</div><div class="stat-value">${s.myTaskCount}</div></div>`;
+
+        // My Tasks
+        const tasksEl = document.getElementById('my-tasks');
+        if (data.myTasks.length === 0) {
+          tasksEl.innerHTML = '<div class="empty-state"><h3>No tasks assigned</h3><p>Tasks assigned to you will appear here</p></div>';
+        } else {
+          tasksEl.innerHTML = '<div class="task-list">' + data.myTasks.map(t => {
+            const overdue = isOverdue(t.due_date, t.status);
+            return `<div class="task-item">
+              <div class="task-info">
+                <div class="task-title">${t.title}</div>
+                <div class="task-meta">
+                  ${statusBadge(t.status)}
+                  ${t.project ? `<span>📁 <a href="/project.html?id=${t.project.id}">${t.project.name}</a></span>` : ''}
+                  ${t.due_date ? `<span style="color:${overdue ? 'var(--danger)' : 'inherit'}">${formatDate(t.due_date)}${overdue ? ' <span class="badge badge-overdue">Overdue</span>' : ''}</span>` : ''}
+                </div>
+              </div>
+              <div class="task-actions">
+                <select class="status-select" onchange="changeStatus('${t.id}', this.value)">
+                  <option value="To Do" ${t.status==='To Do'?'selected':''}>📌 To Do</option>
+                  <option value="In Progress" ${t.status==='In Progress'?'selected':''}>🔄 In Progress</option>
+                  <option value="Done" ${t.status==='Done'?'selected':''}>✅ Done</option>
+                </select>
+              </div>
+            </div>`;
+          }).join('') + '</div>';
+        }
+
+        // Overdue
+        if (data.overdueTasks.length > 0) {
+          document.getElementById('overdue-section').style.display = '';
+          document.getElementById('overdue-tasks').innerHTML = '<div class="task-list">' + data.overdueTasks.map(t =>
+            `<div class="task-item" style="border-color:var(--danger)">
+              <div class="task-info">
+                <div class="task-title">${t.title}</div>
+                <div class="task-meta"><span class="badge badge-overdue">Due ${formatDate(t.due_date)}</span></div>
+              </div>
+            </div>`).join('') + '</div>';
+        }
+
+        // Projects
+        const projEl = document.getElementById('recent-projects');
+        if (data.projects.length === 0) {
+          projEl.innerHTML = '<div class="empty-state"><h3>No projects yet</h3><p>Create your first project</p><a href="/new-project.html" class="btn btn-primary">+ New Project</a></div>';
+        } else {
+          projEl.innerHTML = '<div class="task-list">' + data.projects.slice(0,5).map(p =>
+            `<a href="/project.html?id=${p.id}" class="task-item" style="text-decoration:none;color:inherit">
+              <div class="task-info">
+                <div class="task-title">${p.name}</div>
+                <div class="task-meta">${roleBadge(p.userRole)}</div>
+              </div>
+            </a>`).join('') + '</div>';
+        }
+      } catch (err) { showAlert(err.message, 'error'); }
+    })();
+
+    async function changeStatus(taskId, status) {
+      try { await API.updateStatus(taskId, status); location.reload(); } catch (err) { showAlert(err.message, 'error'); }
+    }
+  </script>
+</body>
+</html>

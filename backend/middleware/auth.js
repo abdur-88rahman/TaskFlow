@@ -1,12 +1,11 @@
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/db');
 
-// Verify JWT token from cookie
+// Verify JWT token from cookie - returns JSON for REST API
 const authenticate = async (req, res, next) => {
   const token = req.cookies.token;
   if (!token) {
-    req.flash('error', 'Please login to continue');
-    return res.redirect('/auth/login');
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   try {
@@ -19,24 +18,21 @@ const authenticate = async (req, res, next) => {
 
     if (error || !user) {
       res.clearCookie('token');
-      req.flash('error', 'Session expired, please login again');
-      return res.redirect('/auth/login');
+      return res.status(401).json({ error: 'Session expired' });
     }
 
     req.user = user;
-    res.locals.currentUser = user;
     next();
   } catch (err) {
     res.clearCookie('token');
-    req.flash('error', 'Invalid session, please login again');
-    return res.redirect('/auth/login');
+    return res.status(401).json({ error: 'Invalid session' });
   }
 };
 
 // Check if user is admin of a project
 const requireProjectAdmin = async (req, res, next) => {
   const projectId = req.params.id || req.params.projectId;
-  
+
   const { data: membership, error } = await supabase
     .from('project_members')
     .select('role')
@@ -45,8 +41,7 @@ const requireProjectAdmin = async (req, res, next) => {
     .single();
 
   if (error || !membership || membership.role !== 'Admin') {
-    req.flash('error', 'Only project admins can perform this action');
-    return res.redirect(`/projects/${projectId}`);
+    return res.status(403).json({ error: 'Admin access required' });
   }
 
   req.userRole = 'Admin';
@@ -65,34 +60,11 @@ const requireProjectMember = async (req, res, next) => {
     .single();
 
   if (error || !membership) {
-    req.flash('error', 'You are not a member of this project');
-    return res.redirect('/projects');
+    return res.status(403).json({ error: 'You are not a member of this project' });
   }
 
   req.userRole = membership.role;
   next();
 };
 
-// Set user in locals if logged in (for navbar)
-const setUser = async (req, res, next) => {
-  const token = req.cookies.token;
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const { data: user } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('id', decoded.userId)
-        .single();
-      req.user = user;
-      res.locals.currentUser = user;
-    } catch {
-      res.locals.currentUser = null;
-    }
-  } else {
-    res.locals.currentUser = null;
-  }
-  next();
-};
-
-module.exports = { authenticate, requireProjectAdmin, requireProjectMember, setUser };
+module.exports = { authenticate, requireProjectAdmin, requireProjectMember };

@@ -5,13 +5,11 @@ const supabase = require('../config/db');
 const { authenticate, requireProjectAdmin, requireProjectMember } = require('../middleware/auth');
 const { projectValidation } = require('../middleware/validators');
 
-// All routes require authentication
 router.use(authenticate);
 
-// GET /projects - List user's projects
+// GET /api/projects — list user's projects
 router.get('/', async (req, res) => {
   try {
-    // Get all projects where user is a member
     const { data: memberships, error } = await supabase
       .from('project_members')
       .select(`
@@ -27,33 +25,26 @@ router.get('/', async (req, res) => {
 
     const projects = memberships.map(m => ({
       ...m.projects,
-      userRole: m.role
+      userRole: m.role,
     }));
 
-    res.render('projects/index', { title: 'My Projects', projects });
+    res.json({ projects });
   } catch (err) {
     console.error('List projects error:', err);
-    req.flash('error', 'Failed to load projects');
-    res.redirect('/dashboard');
+    res.status(500).json({ error: 'Failed to load projects' });
   }
 });
 
-// GET /projects/new - New project form
-router.get('/new', (req, res) => {
-  res.render('projects/new', { title: 'New Project', errors: [] });
-});
-
-// POST /projects - Create project
+// POST /api/projects — create project
 router.post('/', projectValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.render('projects/new', { title: 'New Project', errors: errors.array() });
+    return res.status(400).json({ errors: errors.array() });
   }
 
   const { name, description } = req.body;
 
   try {
-    // Create project
     const { data: project, error } = await supabase
       .from('projects')
       .insert({ name, description: description || '', owner_id: req.user.id })
@@ -62,23 +53,18 @@ router.post('/', projectValidation, async (req, res) => {
 
     if (error) throw error;
 
-    // Add creator as Admin member
     await supabase
       .from('project_members')
       .insert({ project_id: project.id, user_id: req.user.id, role: 'Admin' });
 
-    req.flash('success', 'Project created successfully!');
-    res.redirect(`/projects/${project.id}`);
+    res.status(201).json({ message: 'Project created successfully', project });
   } catch (err) {
     console.error('Create project error:', err);
-    res.render('projects/new', {
-      title: 'New Project',
-      errors: [{ msg: 'Failed to create project' }],
-    });
+    res.status(500).json({ error: 'Failed to create project' });
   }
 });
 
-// GET /projects/:id - Project detail
+// GET /api/projects/:id — project detail
 router.get('/:id', requireProjectMember, async (req, res) => {
   try {
     const { data: project, error: pErr } = await supabase
@@ -88,11 +74,9 @@ router.get('/:id', requireProjectMember, async (req, res) => {
       .single();
 
     if (pErr || !project) {
-      req.flash('error', 'Project not found');
-      return res.redirect('/projects');
+      return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Get members with user info
     const { data: members } = await supabase
       .from('project_members')
       .select(`
@@ -102,7 +86,6 @@ router.get('/:id', requireProjectMember, async (req, res) => {
       .eq('project_id', project.id)
       .order('role', { ascending: true });
 
-    // Get tasks with assignee info
     const { data: tasks } = await supabase
       .from('tasks')
       .select(`
@@ -112,14 +95,13 @@ router.get('/:id', requireProjectMember, async (req, res) => {
       .eq('project_id', project.id)
       .order('created_at', { ascending: false });
 
-    // Get owner info
     const { data: owner } = await supabase
       .from('users')
       .select('id, name, email')
       .eq('id', project.owner_id)
       .single();
 
-    // Get all users NOT already in the project (for add-member dropdown)
+    // Get available users (not yet members)
     const memberUserIds = (members || []).map(m => m.users.id);
     const { data: allUsers } = await supabase
       .from('users')
@@ -128,8 +110,7 @@ router.get('/:id', requireProjectMember, async (req, res) => {
 
     const availableUsers = (allUsers || []).filter(u => !memberUserIds.includes(u.id));
 
-    res.render('projects/show', {
-      title: project.name,
+    res.json({
       project,
       members: members || [],
       tasks: tasks || [],
@@ -139,22 +120,19 @@ router.get('/:id', requireProjectMember, async (req, res) => {
     });
   } catch (err) {
     console.error('Show project error:', err);
-    req.flash('error', 'Failed to load project');
-    res.redirect('/projects');
+    res.status(500).json({ error: 'Failed to load project' });
   }
 });
 
-// POST /projects/:id/members - Add member (Admin only)
+// POST /api/projects/:id/members — add member (Admin only)
 router.post('/:id/members', requireProjectAdmin, async (req, res) => {
   const { user_id, role } = req.body;
 
   try {
     if (!user_id) {
-      req.flash('error', 'Please select a user');
-      return res.redirect(`/projects/${req.params.id}`);
+      return res.status(400).json({ error: 'Please select a user' });
     }
 
-    // Get user info
     const { data: user, error: uErr } = await supabase
       .from('users')
       .select('id, name, email')
@@ -162,11 +140,9 @@ router.post('/:id/members', requireProjectAdmin, async (req, res) => {
       .single();
 
     if (uErr || !user) {
-      req.flash('error', 'User not found');
-      return res.redirect(`/projects/${req.params.id}`);
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if already a member
     const { data: existing } = await supabase
       .from('project_members')
       .select('id')
@@ -175,29 +151,24 @@ router.post('/:id/members', requireProjectAdmin, async (req, res) => {
       .single();
 
     if (existing) {
-      req.flash('error', 'User is already a member of this project');
-      return res.redirect(`/projects/${req.params.id}`);
+      return res.status(409).json({ error: 'User is already a member' });
     }
 
-    // Add member
     const memberRole = role === 'Admin' ? 'Admin' : 'Member';
     await supabase
       .from('project_members')
       .insert({ project_id: req.params.id, user_id: user.id, role: memberRole });
 
-    req.flash('success', `${user.name} added as ${memberRole}`);
-    res.redirect(`/projects/${req.params.id}`);
+    res.status(201).json({ message: `${user.name} added as ${memberRole}` });
   } catch (err) {
     console.error('Add member error:', err);
-    req.flash('error', 'Failed to add member');
-    res.redirect(`/projects/${req.params.id}`);
+    res.status(500).json({ error: 'Failed to add member' });
   }
 });
 
-// POST /projects/:id/members/:memberId/remove - Remove member (Admin only)
-router.post('/:id/members/:memberId/remove', requireProjectAdmin, async (req, res) => {
+// DELETE /api/projects/:id/members/:memberId — remove member (Admin only)
+router.delete('/:id/members/:memberId', requireProjectAdmin, async (req, res) => {
   try {
-    // Prevent removing yourself if you're the owner
     const { data: membership } = await supabase
       .from('project_members')
       .select('user_id')
@@ -211,8 +182,7 @@ router.post('/:id/members/:memberId/remove', requireProjectAdmin, async (req, re
       .single();
 
     if (membership && project && membership.user_id === project.owner_id) {
-      req.flash('error', 'Cannot remove the project owner');
-      return res.redirect(`/projects/${req.params.id}`);
+      return res.status(403).json({ error: 'Cannot remove the project owner' });
     }
 
     await supabase
@@ -220,25 +190,21 @@ router.post('/:id/members/:memberId/remove', requireProjectAdmin, async (req, re
       .delete()
       .eq('id', req.params.memberId);
 
-    req.flash('success', 'Member removed');
-    res.redirect(`/projects/${req.params.id}`);
+    res.json({ message: 'Member removed' });
   } catch (err) {
     console.error('Remove member error:', err);
-    req.flash('error', 'Failed to remove member');
-    res.redirect(`/projects/${req.params.id}`);
+    res.status(500).json({ error: 'Failed to remove member' });
   }
 });
 
-// POST /projects/:id/delete - Delete project (Admin only)
-router.post('/:id/delete', requireProjectAdmin, async (req, res) => {
+// DELETE /api/projects/:id — delete project (Admin only)
+router.delete('/:id', requireProjectAdmin, async (req, res) => {
   try {
     await supabase.from('projects').delete().eq('id', req.params.id);
-    req.flash('success', 'Project deleted');
-    res.redirect('/projects');
+    res.json({ message: 'Project deleted' });
   } catch (err) {
     console.error('Delete project error:', err);
-    req.flash('error', 'Failed to delete project');
-    res.redirect(`/projects/${req.params.id}`);
+    res.status(500).json({ error: 'Failed to delete project' });
   }
 });
 
