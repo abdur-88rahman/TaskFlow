@@ -246,14 +246,3 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 
 ---
-
-## 👤 Author
-
-**Abdur Rahman**
-- GitHub: [@AbdurRahman22224](https://github.com/AbdurRahman22224)
-
----
-
-## 📄 License
-
-This project is built as a full-stack assignment submission.
