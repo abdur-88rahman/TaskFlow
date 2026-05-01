@@ -1,0 +1,178 @@
+<%- include('../partials/header') %>
+<%- include('../partials/navbar') %>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1><%= project.name %></h1>
+      <% if (project.description) { %>
+        <p><%= project.description %></p>
+      <% } %>
+    </div>
+    <div class="btn-group">
+      <% if (userRole === 'Admin') { %>
+        <a href="/projects/<%= project.id %>/tasks/new" class="btn btn-primary" id="new-task-btn">+ Add Task</a>
+        <form action="/projects/<%= project.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this project and all its tasks?')">
+          <button type="submit" class="btn btn-danger" id="delete-project-btn">Delete Project</button>
+        </form>
+      <% } %>
+      <a href="/projects" class="btn btn-secondary">← Back</a>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Tasks -->
+    <div class="section">
+      <h2 class="section-title">📋 Tasks (<%= tasks.length %>)</h2>
+
+      <% if (tasks.length === 0) { %>
+        <div class="empty-state">
+          <h3>No tasks yet</h3>
+          <p>Create your first task to get started</p>
+          <% if (userRole === 'Admin') { %>
+            <a href="/projects/<%= project.id %>/tasks/new" class="btn btn-primary">+ Add Task</a>
+          <% } %>
+        </div>
+      <% } else { %>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Status</th>
+                <th>Assignee</th>
+                <th>Due Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% tasks.forEach(task => { %>
+                <%
+                  const now = new Date();
+                  now.setHours(0,0,0,0);
+                  const due = task.due_date ? new Date(task.due_date) : null;
+                  const isOverdue = due && due < now && task.status !== 'Done';
+                %>
+                <tr>
+                  <td>
+                    <span class="task-title"><%= task.title %></span>
+                    <% if (task.description) { %>
+                      <br><small style="color:var(--text-muted)"><%= task.description.substring(0, 60) %><%= task.description.length > 60 ? '...' : '' %></small>
+                    <% } %>
+                  </td>
+                  <td>
+                    <%
+                      const canChangeStatus = userRole === 'Admin' || (task.assigned_to === currentUser.id);
+                    %>
+                    <% if (canChangeStatus) { %>
+                      <form action="/tasks/<%= task.id %>/status" method="POST" class="status-form">
+                        <select name="status" class="status-select">
+                          <option value="To Do" <%= task.status === 'To Do' ? 'selected' : '' %>>📌 To Do</option>
+                          <option value="In Progress" <%= task.status === 'In Progress' ? 'selected' : '' %>>🔄 In Progress</option>
+                          <option value="Done" <%= task.status === 'Done' ? 'selected' : '' %>>✅ Done</option>
+                        </select>
+                      </form>
+                    <% } else { %>
+                      <% if (task.status === 'To Do') { %>
+                        <span class="badge badge-todo">To Do</span>
+                      <% } else if (task.status === 'In Progress') { %>
+                        <span class="badge badge-progress">In Progress</span>
+                      <% } else { %>
+                        <span class="badge badge-done">Done</span>
+                      <% } %>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (task.assignee) { %>
+                      <span style="display:flex;align-items:center;gap:0.4rem">
+                        <span class="avatar" style="width:24px;height:24px;font-size:0.7rem"><%= task.assignee.name.charAt(0).toUpperCase() %></span>
+                        <%= task.assignee.name %>
+                      </span>
+                    <% } else { %>
+                      <span style="color:var(--text-muted)">Unassigned</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (task.due_date) { %>
+                      <span style="color: <%= isOverdue ? 'var(--danger)' : 'var(--text-secondary)' %>">
+                        <%= new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+                        <% if (isOverdue) { %> <span class="badge badge-overdue">Overdue</span><% } %>
+                      </span>
+                    <% } else { %>
+                      <span style="color:var(--text-muted)">—</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="btn-group">
+                      <% if (userRole === 'Admin') { %>
+                        <a href="/tasks/<%= task.id %>/edit" class="btn btn-secondary btn-sm">Edit</a>
+                        <form action="/tasks/<%= task.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this task?')">
+                          <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Members Sidebar -->
+    <div>
+      <div class="section">
+        <h2 class="section-title">👥 Team Members (<%= members.length %>)</h2>
+
+        <% if (userRole === 'Admin') { %>
+          <form action="/projects/<%= project.id %>/members" method="POST" class="add-member-form" id="add-member-form">
+            <input type="email" name="email" class="form-control" placeholder="Email address" required>
+            <select name="role" class="form-control">
+              <option value="Member">Member</option>
+              <option value="Admin">Admin</option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Add</button>
+          </form>
+        <% } %>
+
+        <div class="member-list">
+          <% members.forEach(member => { %>
+            <div class="member-item">
+              <div class="member-info">
+                <div class="avatar"><%= member.users.name.charAt(0).toUpperCase() %></div>
+                <div>
+                  <div class="member-name"><%= member.users.name %></div>
+                  <div class="member-email"><%= member.users.email %></div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem">
+                <span class="badge badge-<%= member.role === 'Admin' ? 'admin' : 'member' %>"><%= member.role %></span>
+                <% if (userRole === 'Admin' && member.users.id !== owner.id) { %>
+                  <form action="/projects/<%= project.id %>/members/<%= member.id %>/remove" method="POST" onsubmit="return confirm('Remove this member?')">
+                    <button type="submit" class="btn btn-danger btn-sm" title="Remove">✕</button>
+                  </form>
+                <% } %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+      <!-- Project Info -->
+      <div class="section">
+        <h2 class="section-title">ℹ️ Project Info</h2>
+        <div class="card" style="cursor:default">
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">Owner</p>
+          <p style="font-size:0.95rem;margin-bottom:1rem"><%= owner.name %></p>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">Created</p>
+          <p style="font-size:0.95rem;margin-bottom:1rem"><%= new Date(project.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %></p>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">Your Role</p>
+          <span class="badge badge-<%= userRole === 'Admin' ? 'admin' : 'member' %>"><%= userRole %></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

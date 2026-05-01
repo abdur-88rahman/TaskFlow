@@ -1,0 +1,20 @@
+
+<script>
+  // Auto-submit status change
+  document.querySelectorAll('.status-select').forEach(select => {
+    select.addEventListener('change', function() {
+      this.closest('form').submit();
+    });
+  });
+
+  // Auto-dismiss alerts after 4 seconds
+  document.querySelectorAll('.alert').forEach(alert => {
+    setTimeout(() => {
+      alert.style.opacity = '0';
+      alert.style.transform = 'translateY(-8px)';
+      setTimeout(() => alert.remove(), 300);
+    }, 4000);
+  });
+</script>
+</body>
+</html>

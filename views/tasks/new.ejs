@@ -1,0 +1,62 @@
+<%- include('../partials/header') %>
+<%- include('../partials/navbar') %>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>New Task</h1>
+      <p>Add a task to <strong><%= project.name %></strong></p>
+    </div>
+    <a href="/projects/<%= project.id %>" class="btn btn-secondary">← Back</a>
+  </div>
+
+  <div class="form-container">
+    <div class="card" style="cursor:default">
+      <% if (errors && errors.length > 0) { %>
+        <% errors.forEach(err => { %>
+          <div class="alert alert-error">✕ <%= err.msg %></div>
+        <% }) %>
+      <% } %>
+
+      <form action="/projects/<%= project.id %>/tasks" method="POST" id="create-task-form">
+        <div class="form-group">
+          <label for="title">Task Title</label>
+          <input type="text" class="form-control" id="title" name="title" placeholder="e.g. Design landing page" required>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description (optional)</label>
+          <textarea class="form-control" id="description" name="description" placeholder="Task details..." rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select class="form-control" id="status" name="status">
+            <option value="To Do">To Do</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Done">Done</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="assigned_to">Assign To</label>
+          <select class="form-control" id="assigned_to" name="assigned_to">
+            <option value="">Unassigned</option>
+            <% members.forEach(member => { %>
+              <option value="<%= member.users.id %>"><%= member.users.name %> (<%= member.users.email %>)</option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="due_date">Due Date (optional)</label>
+          <input type="date" class="form-control" id="due_date" name="due_date">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="create-task-btn">Create Task</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

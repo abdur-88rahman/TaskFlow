@@ -1,0 +1,38 @@
+<%- include('../partials/header') %>
+<%- include('../partials/navbar') %>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <h1>Create Account</h1>
+    <p class="auth-subtitle">Join TaskFlow to start managing your team's work</p>
+
+    <% if (errors && errors.length > 0) { %>
+      <% errors.forEach(err => { %>
+        <div class="alert alert-error">✕ <%= err.msg %></div>
+      <% }) %>
+    <% } %>
+
+    <form action="/auth/signup" method="POST" id="signup-form">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" class="form-control" id="name" name="name" placeholder="John Doe" required>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" class="form-control" id="email" name="email" placeholder="john@example.com" required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" placeholder="Min 6 characters" minlength="6" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" id="signup-btn">Create Account</button>
+    </form>
+
+    <p class="auth-link">Already have an account? <a href="/auth/login">Login</a></p>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

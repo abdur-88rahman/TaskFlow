@@ -1,0 +1,65 @@
+<%- include('../partials/header') %>
+<%- include('../partials/navbar') %>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Edit Task</h1>
+      <p>Editing task in <strong><%= project.name %></strong></p>
+    </div>
+    <a href="/projects/<%= project.id %>" class="btn btn-secondary">← Back</a>
+  </div>
+
+  <div class="form-container">
+    <div class="card" style="cursor:default">
+      <% if (errors && errors.length > 0) { %>
+        <% errors.forEach(err => { %>
+          <div class="alert alert-error">✕ <%= err.msg %></div>
+        <% }) %>
+      <% } %>
+
+      <form action="/tasks/<%= task.id %>" method="POST" id="edit-task-form">
+        <div class="form-group">
+          <label for="title">Task Title</label>
+          <input type="text" class="form-control" id="title" name="title" value="<%= task.title %>" required>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description (optional)</label>
+          <textarea class="form-control" id="description" name="description" rows="3"><%= task.description || '' %></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select class="form-control" id="status" name="status">
+            <option value="To Do" <%= task.status === 'To Do' ? 'selected' : '' %>>To Do</option>
+            <option value="In Progress" <%= task.status === 'In Progress' ? 'selected' : '' %>>In Progress</option>
+            <option value="Done" <%= task.status === 'Done' ? 'selected' : '' %>>Done</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="assigned_to">Assign To</label>
+          <select class="form-control" id="assigned_to" name="assigned_to">
+            <option value="">Unassigned</option>
+            <% members.forEach(member => { %>
+              <option value="<%= member.users.id %>" <%= task.assigned_to === member.users.id ? 'selected' : '' %>>
+                <%= member.users.name %> (<%= member.users.email %>)
+              </option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="due_date">Due Date (optional)</label>
+          <input type="date" class="form-control" id="due_date" name="due_date"
+            value="<%= task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '' %>">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="update-task-btn">Update Task</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

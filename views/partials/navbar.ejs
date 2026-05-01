@@ -1,0 +1,40 @@
+<nav class="navbar">
+  <a href="/" class="navbar-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+    TaskFlow
+  </a>
+
+  <ul class="navbar-nav">
+    <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+      <li><a href="/dashboard" class="nav-link" id="nav-dashboard">Dashboard</a></li>
+      <li><a href="/projects" class="nav-link" id="nav-projects">Projects</a></li>
+      <li class="nav-user">
+        <div class="avatar"><%= currentUser.name.charAt(0).toUpperCase() %></div>
+        <a href="/auth/logout" class="nav-link" id="nav-logout">Logout</a>
+      </li>
+    <% } else { %>
+      <li><a href="/auth/login" class="nav-link" id="nav-login">Login</a></li>
+      <li><a href="/auth/signup" class="btn btn-primary btn-sm" id="nav-signup">Sign Up</a></li>
+    <% } %>
+  </ul>
+</nav>
+
+<% if (typeof success !== 'undefined' && success && success.length > 0) { %>
+  <% success.forEach(msg => { %>
+    <div class="container" style="padding-bottom:0">
+      <div class="alert alert-success">✓ <%= msg %></div>
+    </div>
+  <% }) %>
+<% } %>
+
+<% if (typeof error !== 'undefined' && error && error.length > 0) { %>
+  <% error.forEach(msg => { %>
+    <div class="container" style="padding-bottom:0">
+      <div class="alert alert-error">✕ <%= msg %></div>
+    </div>
+  <% }) %>
+<% } %>

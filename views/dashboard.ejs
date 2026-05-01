@@ -1,0 +1,153 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Welcome back, <strong><%= currentUser.name %></strong></p>
+    </div>
+    <a href="/projects/new" class="btn btn-primary" id="new-project-btn">+ New Project</a>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card accent">
+      <div class="stat-icon">📁</div>
+      <div class="stat-label">Projects</div>
+      <div class="stat-value"><%= stats.totalProjects %></div>
+    </div>
+    <div class="stat-card info">
+      <div class="stat-icon">📋</div>
+      <div class="stat-label">Total Tasks</div>
+      <div class="stat-value"><%= stats.totalTasks %></div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-icon">🔄</div>
+      <div class="stat-label">In Progress</div>
+      <div class="stat-value"><%= stats.inProgress %></div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">Completed</div>
+      <div class="stat-value"><%= stats.done %></div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-label">Overdue</div>
+      <div class="stat-value"><%= stats.overdue %></div>
+    </div>
+    <div class="stat-card info">
+      <div class="stat-icon">👤</div>
+      <div class="stat-label">My Tasks</div>
+      <div class="stat-value"><%= stats.myTaskCount %></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- My Tasks -->
+    <div class="section">
+      <h2 class="section-title">📋 My Tasks</h2>
+      <% if (myTasks.length === 0) { %>
+        <div class="empty-state">
+          <h3>No tasks assigned</h3>
+          <p>Tasks assigned to you will appear here</p>
+        </div>
+      <% } else { %>
+        <div class="task-list">
+          <% myTasks.forEach(task => { %>
+            <div class="task-item">
+              <div class="task-info">
+                <div class="task-title"><%= task.title %></div>
+                <div class="task-meta">
+                  <span>
+                    <% if (task.status === 'To Do') { %>
+                      <span class="badge badge-todo">To Do</span>
+                    <% } else if (task.status === 'In Progress') { %>
+                      <span class="badge badge-progress">In Progress</span>
+                    <% } else { %>
+                      <span class="badge badge-done">Done</span>
+                    <% } %>
+                  </span>
+                  <% if (task.project) { %>
+                    <span>📁 <a href="/projects/<%= task.project.id %>"><%= task.project.name %></a></span>
+                  <% } %>
+                  <% if (task.due_date) { %>
+                    <%
+                      const now = new Date();
+                      now.setHours(0,0,0,0);
+                      const due = new Date(task.due_date);
+                      const isOverdue = due < now && task.status !== 'Done';
+                    %>
+                    <span style="color: <%= isOverdue ? 'var(--danger)' : 'inherit' %>">
+                      📅 <%= new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+                      <% if (isOverdue) { %><span class="badge badge-overdue">Overdue</span><% } %>
+                    </span>
+                  <% } %>
+                </div>
+              </div>
+              <div class="task-actions">
+                <form action="/tasks/<%= task.id %>/status" method="POST" class="status-form">
+                  <select name="status" class="status-select">
+                    <option value="To Do" <%= task.status === 'To Do' ? 'selected' : '' %>>To Do</option>
+                    <option value="In Progress" <%= task.status === 'In Progress' ? 'selected' : '' %>>In Progress</option>
+                    <option value="Done" <%= task.status === 'Done' ? 'selected' : '' %>>Done</option>
+                  </select>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Overdue & Projects -->
+    <div>
+      <% if (overdueTasks.length > 0) { %>
+        <div class="section">
+          <h2 class="section-title" style="color: var(--danger)">⚠️ Overdue</h2>
+          <div class="task-list">
+            <% overdueTasks.forEach(task => { %>
+              <div class="task-item" style="border-color: var(--danger)">
+                <div class="task-info">
+                  <div class="task-title"><%= task.title %></div>
+                  <div class="task-meta">
+                    <span class="badge badge-overdue">
+                      Due <%= new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="section">
+        <h2 class="section-title">📁 Recent Projects</h2>
+        <% if (projects.length === 0) { %>
+          <div class="empty-state">
+            <h3>No projects yet</h3>
+            <p>Create your first project to get started</p>
+            <a href="/projects/new" class="btn btn-primary">+ New Project</a>
+          </div>
+        <% } else { %>
+          <div class="task-list">
+            <% projects.slice(0, 5).forEach(project => { %>
+              <a href="/projects/<%= project.id %>" class="task-item" style="text-decoration:none;color:inherit">
+                <div class="task-info">
+                  <div class="task-title"><%= project.name %></div>
+                  <div class="task-meta">
+                    <span class="badge badge-<%= project.userRole === 'Admin' ? 'admin' : 'member' %>"><%= project.userRole %></span>
+                  </div>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
