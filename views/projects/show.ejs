@@ -84,12 +84,12 @@
                   </td>
                   <td>
                     <% if (task.assignee) { %>
-                      <span style="display:flex;align-items:center;gap:0.4rem">
-                        <span class="avatar" style="width:24px;height:24px;font-size:0.7rem"><%= task.assignee.name.charAt(0).toUpperCase() %></span>
-                        <%= task.assignee.name %>
+                      <span class="assignee-chip">
+                        <span class="assignee-avatar"><%= task.assignee.name.charAt(0).toUpperCase() %></span>
+                        <span class="assignee-name"><%= task.assignee.name %></span>
                       </span>
                     <% } else { %>
-                      <span style="color:var(--text-muted)">Unassigned</span>
+                      <span style="color:var(--text-muted);font-style:italic">Unassigned</span>
                     <% } %>
                   </td>
                   <td>
@@ -127,13 +127,92 @@
 
         <% if (userRole === 'Admin') { %>
           <form action="/projects/<%= project.id %>/members" method="POST" class="add-member-form" id="add-member-form">
-            <input type="email" name="email" class="form-control" placeholder="Email address" required>
+            <div class="autocomplete-wrapper">
+              <input type="text" class="form-control" id="member-search" placeholder="Search by name or email..." autocomplete="off">
+              <input type="hidden" name="user_id" id="selected-user-id">
+              <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+            </div>
             <select name="role" class="form-control">
               <option value="Member">Member</option>
               <option value="Admin">Admin</option>
             </select>
-            <button type="submit" class="btn btn-primary btn-sm">Add</button>
+            <button type="submit" class="btn btn-primary btn-sm" id="add-member-btn">Add</button>
           </form>
+          <% if (availableUsers.length === 0) { %>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">All registered users are already members</p>
+          <% } %>
+
+          <script>
+            const availableUsers = <%- JSON.stringify(availableUsers) %>;
+            const searchInput = document.getElementById('member-search');
+            const hiddenInput = document.getElementById('selected-user-id');
+            const dropdown = document.getElementById('autocomplete-dropdown');
+            const form = document.getElementById('add-member-form');
+
+            function renderDropdown(users) {
+              if (users.length === 0) {
+                dropdown.innerHTML = '<div class="ac-empty">No users found</div>';
+                dropdown.classList.add('visible');
+                return;
+              }
+              dropdown.innerHTML = users.map(u => `
+                <div class="ac-item" data-id="${u.id}" data-name="${u.name}" data-email="${u.email}">
+                  <span class="ac-avatar">${u.name.charAt(0).toUpperCase()}</span>
+                  <div class="ac-info">
+                    <span class="ac-name">${u.name}</span>
+                    <span class="ac-email">${u.email}</span>
+                  </div>
+                </div>
+              `).join('');
+              dropdown.classList.add('visible');
+
+              dropdown.querySelectorAll('.ac-item').forEach(item => {
+                item.addEventListener('click', () => {
+                  hiddenInput.value = item.dataset.id;
+                  searchInput.value = `${item.dataset.name} (${item.dataset.email})`;
+                  searchInput.style.borderColor = 'var(--success)';
+                  dropdown.classList.remove('visible');
+                });
+              });
+            }
+
+            searchInput.addEventListener('input', () => {
+              const q = searchInput.value.toLowerCase().trim();
+              hiddenInput.value = '';
+              searchInput.style.borderColor = '';
+
+              if (q.length === 0) {
+                dropdown.classList.remove('visible');
+                return;
+              }
+
+              const filtered = availableUsers.filter(u =>
+                u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+              );
+              renderDropdown(filtered);
+            });
+
+            searchInput.addEventListener('focus', () => {
+              if (searchInput.value.trim() && !hiddenInput.value) {
+                searchInput.dispatchEvent(new Event('input'));
+              }
+            });
+
+            document.addEventListener('click', (e) => {
+              if (!e.target.closest('.autocomplete-wrapper')) {
+                dropdown.classList.remove('visible');
+              }
+            });
+
+            form.addEventListener('submit', (e) => {
+              if (!hiddenInput.value) {
+                e.preventDefault();
+                searchInput.style.borderColor = 'var(--danger)';
+                searchInput.focus();
+                searchInput.setAttribute('placeholder', 'Please select a user from suggestions...');
+              }
+            });
+          </script>
         <% } %>
 
         <div class="member-list">

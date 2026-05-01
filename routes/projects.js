@@ -119,6 +119,15 @@ router.get('/:id', requireProjectMember, async (req, res) => {
       .eq('id', project.owner_id)
       .single();
 
+    // Get all users NOT already in the project (for add-member dropdown)
+    const memberUserIds = (members || []).map(m => m.users.id);
+    const { data: allUsers } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .order('name', { ascending: true });
+
+    const availableUsers = (allUsers || []).filter(u => !memberUserIds.includes(u.id));
+
     res.render('projects/show', {
       title: project.name,
       project,
@@ -126,6 +135,7 @@ router.get('/:id', requireProjectMember, async (req, res) => {
       tasks: tasks || [],
       owner,
       userRole: req.userRole,
+      availableUsers,
     });
   } catch (err) {
     console.error('Show project error:', err);
@@ -136,18 +146,23 @@ router.get('/:id', requireProjectMember, async (req, res) => {
 
 // POST /projects/:id/members - Add member (Admin only)
 router.post('/:id/members', requireProjectAdmin, async (req, res) => {
-  const { email, role } = req.body;
+  const { user_id, role } = req.body;
 
   try {
-    // Find user by email
+    if (!user_id) {
+      req.flash('error', 'Please select a user');
+      return res.redirect(`/projects/${req.params.id}`);
+    }
+
+    // Get user info
     const { data: user, error: uErr } = await supabase
       .from('users')
       .select('id, name, email')
-      .eq('email', email.trim().toLowerCase())
+      .eq('id', user_id)
       .single();
 
     if (uErr || !user) {
-      req.flash('error', 'User not found with that email');
+      req.flash('error', 'User not found');
       return res.redirect(`/projects/${req.params.id}`);
     }
 
